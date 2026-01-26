@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "geoscience"
+version = "0.1.0"
+description = "Geoscience Python Library"
+authors = [{ name = "Yoga Hariman" }]
+dependencies = [
+    "numpy",
+    "scipy",
+    "segyio"
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = [
+  "seismic*",
+  "well*",
+  "map*"
+]
