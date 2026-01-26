@@ -66,8 +66,11 @@ geoscience/                     ← repo name & pip package name
 │   │   │   ├── plot2d.py
 │   │   │   └── plot3d.py
 │   │   │
-│   │   └── well/
-│   │       └── __init__.py
+│   ├── well/
+│   │   └── __init__.py
+│   │
+│   ├── map/
+│   │   └── __init__.py
 │   │
 ├── scripts/                    ← CLI / experiment scripts
 ├── pyproject.toml
