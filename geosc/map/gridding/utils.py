@@ -3,26 +3,30 @@ from skgstat import Variogram
 
 
 def idw_interpolate(x, y, values, grid_x, grid_y, power=2):
+    """
+    Inverse Distance Weighting (IDW) interpolation
+    """
     x = np.asarray(x)
     y = np.asarray(y)
     v = np.asarray(values)
 
-    gx = grid_x.flatten()
-    gy = grid_y.flatten()
+    gx = np.asarray(grid_x).ravel()
+    gy = np.asarray(grid_y).ravel()
 
-    grid_values = np.zeros_like(gx)
+    out = np.zeros_like(gx, dtype=float)
 
     for i, (xx, yy) in enumerate(zip(gx, gy)):
         dx = x - xx
         dy = y - yy
-        dist = np.sqrt(dx*dx + dy*dy)
-        dist[dist == 0] = 1e-12
+        dist = np.sqrt(dx * dx + dy * dy)
+        dist[dist == 0.0] = 1e-12
 
-        w = 1.0 / (dist**power)
+        w = 1.0 / (dist ** power)
         w /= w.sum()
-        grid_values[i] = np.sum(w * v)
+        out[i] = np.sum(w * v)
 
-    return grid_values.reshape(grid_x.shape)
+    return out
+
 
 
 def auto_variogram(x, y, values, model="spherical"):
@@ -36,9 +40,8 @@ def auto_variogram(x, y, values, model="spherical"):
         maxlag="median",
     )
 
-    # hasil variogram berupa dict sill, range, nugget
     return {
-        "sill": V.parameters[1],
         "range": V.parameters[0],
+        "sill": V.parameters[1],
         "nugget": V.parameters[2],
     }

@@ -5,7 +5,7 @@ class BaseGridder:
         self.params = kwargs
 
     def fit(self, x, y, values):
-        pass
+        raise NotImplementedError
 
     def predict(self, x, y, values, grid_x, grid_y):
         raise NotImplementedError

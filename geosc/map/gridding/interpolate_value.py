@@ -1,12 +1,13 @@
 import numpy as np
-from .base import BaseGridder
-from .utils import idw_interpolate, auto_variogram
-
 from pykrige.ok import OrdinaryKriging
 from pykrige.uk import UniversalKriging
 
+from .base import BaseGridder
+from .utils import auto_variogram
+
 
 class KrigingGridder(BaseGridder):
+    """Kriging interpolation (Ordinary / Universal)."""
 
     def fit(self, x, y, values):
         self.x = np.asarray(x)
@@ -14,47 +15,96 @@ class KrigingGridder(BaseGridder):
         self.v = np.asarray(values)
 
         self.model = self.params.get("variogram_model", "spherical")
-        manual = self.params.get("variogram_parameters", None)
+        self.uk = self.params.get("universal", False)
 
-        # auto variogram jika tidak di-set
+        manual = self.params.get("variogram_parameters", None)
         if manual is None:
-            self.variogram_parameters = auto_variogram(self.x, self.y, self.v, self.model)
+            self.variogram_parameters = auto_variogram(
+                self.x, self.y, self.v, self.model
+            )
         else:
             self.variogram_parameters = manual
-
-        self.uk = self.params.get("universal", False)
 
     def predict(self, x, y, values, grid_x, grid_y):
         self.fit(x, y, values)
 
-        # Shape asli (supaya nanti dikembalikan)
-        orig_shape = grid_x.shape
+        gx = np.asarray(grid_x).ravel()
+        gy = np.asarray(grid_y).ravel()
 
-        # Flatten semua titik
-        gx = np.asarray(grid_x).flatten()
-        gy = np.asarray(grid_y).flatten()
+        if self.uk:
+            K = UniversalKriging(
+                self.x, self.y, self.v,
+                variogram_model=self.model,
+                variogram_parameters=self.variogram_parameters,
+                drift_terms=self.params.get(
+                    "drift_terms", ["regional_linear"]
+                ),
+            )
+        else:
+            K = OrdinaryKriging(
+                self.x, self.y, self.v,
+                variogram_model=self.model,
+                variogram_parameters=self.variogram_parameters,
+            )
 
-        try:
-            if self.uk:
-                K = UniversalKriging(
-                    self.x, self.y, self.v,
-                    variogram_model=self.model,
-                    variogram_parameters=self.variogram_parameters,
-                    drift_terms=self.params.get("drift_terms", ["regional_linear"])
-                )
-            else:
-                K = OrdinaryKriging(
-                    self.x, self.y, self.v,
-                    variogram_model=self.model,
-                    variogram_parameters=self.variogram_parameters,
-                )
+        z, _ = K.execute("points", gx, gy)
+        return z
 
-            # EKSEKUSI UNTUK ARBITRARY POINTS
-            z, _ = K.execute("points", gx, gy)
 
-        except Exception:
-            # fallback
-            z = idw_interpolate(x, y, values, grid_x, grid_y)
+# =========================================================
+# PUBLIC API (VALUE)
+# =========================================================
 
-        # reshape balik
-        return z.reshape(orig_shape)
+def grid_value(
+    x, y, values,
+    grid_x, grid_y,
+    method="kriging",
+    **kwargs
+):
+    """
+    Grid continuous values.
+
+    Supported methods
+    -----------------
+    - kriging  : Ordinary / Universal Kriging (pykrige)
+    - idw      : Inverse Distance Weighting
+    - nearest  : Nearest neighbour
+
+    Returns
+    -------
+    z : 1D ndarray
+        Interpolated values at (grid_x, grid_y)
+    """
+
+    method = method.lower()
+
+    # --------------------------------------------------
+    # KRIGING
+    # --------------------------------------------------
+    if method == "kriging":
+        gridder = KrigingGridder(**kwargs)
+        return gridder.predict(x, y, values, grid_x, grid_y)
+
+    # --------------------------------------------------
+    # IDW
+    # --------------------------------------------------
+    elif method == "idw":
+        from .utils import idw_interpolate
+        power = kwargs.get("power", 2)
+        return idw_interpolate(x, y, values, grid_x, grid_y, power=power)
+
+    # --------------------------------------------------
+    # NEAREST NEIGHBOUR
+    # --------------------------------------------------
+    elif method == "nearest":
+        from scipy.spatial import cKDTree
+        x = np.asarray(x)
+        y = np.asarray(y)
+        v = np.asarray(values)
+
+        tree = cKDTree(np.c_[x, y])
+        _, idx = tree.query(np.c_[grid_x, grid_y], k=1)
+        return v[idx]
+
+    else:
+        raise ValueError(f"Unknown gridding method: {method}")

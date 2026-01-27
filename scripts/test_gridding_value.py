@@ -1,7 +1,8 @@
 import pandas as pd
 import numpy as np
-from geosc.map.gridding.interpolate_value import KrigingGridder
+from geosc.map.gridding.interpolate_value import grid_value
 import matplotlib.pyplot as plt
+from scipy.interpolate import griddata
 
 # data to be gridded 
 df_ai = pd.read_csv("/Drive/D/Works/DataSample/Gridding/data_dummy_slice.csv")
@@ -14,29 +15,24 @@ df_grid = pd.read_csv("/Drive/D/Works/DataSample/Gridding/data_dummy_grid_map_xy
 gx = df_grid["x"].values
 gy = df_grid["y"].values
 
-gridder = KrigingGridder(
-    variogram_model="spherical",   # atau "exponential", "gaussian"
-    universal=False                # Ordinary Kriging
-)
+dx = x.max() - x.min()
+dy = y.max() - y.min()
 
-# gridder = KrigingGridder(
-#     variogram_model="spherical",
-#     universal=True,
-#     drift_terms=["regional_linear"]
-# )
+domain_size = max(dx, dy)
 
-# gridder = KrigingGridder(
-#     variogram_model="spherical",
-#     variogram_parameters={
-#         "sill": 1200,
-#         "range": 800,
-#         "nugget": 50
-#     }
-# )
+range_kriging = 0.4 * domain_size
 
-ai_grid = gridder.predict(
+ai_grid = grid_value(
     x, y, ai,
-    gx, gy
+    gx, gy,
+    method="kriging",
+    variogram_model="spherical",
+    variogram_parameters={
+        "range": range_kriging,
+        "sill": np.var(ai),
+        "nugget": 0.05 * np.var(ai),
+    },
+    universal=False
 )
 
 # out = pd.DataFrame({
@@ -47,32 +43,33 @@ ai_grid = gridder.predict(
 
 # out.to_csv("ai_kriging_grid.csv", index=False)
 
-# Reshape grid data to 2D for plotting
-gx = gx.reshape(-1, 1) if gx.ndim == 1 else gx
-gy = gy.reshape(-1, 1) if gy.ndim == 1 else gy
-ai_grid = ai_grid.reshape(-1, 1) if ai_grid.ndim == 1 else ai_grid
+xu = np.unique(gx)
+yu = np.unique(gy)
 
-# Create meshgrid if needed
-gx_mesh, gy_mesh = np.meshgrid(np.unique(gx), np.unique(gy))
-ai_grid_mesh = ai_grid.reshape(gx_mesh.shape)
-# Create map plot
-fig, ax = plt.subplots(figsize=(10, 8))
+GX, GY = np.meshgrid(xu, yu)
 
-# Plot gridded data as contour/heatmap
-contour = ax.contourf(gx, gy, ai_grid, levels=20, cmap="viridis")
+ai_map = griddata(
+    (gx, gy),      # titik hasil kriging
+    ai_grid,       # value hasil kriging
+    (GX, GY),      # grid display
+    method="linear"   # "nearest" / "cubic"
+)
 
-# Overlay original data points
-ax.scatter(x, y, c=ai, s=30, cmap="viridis", edgecolors="black", linewidth=0.5, alpha=0.7, label="Sample Data")
+plt.figure(figsize=(8, 6))
 
-# Colorbar
-cbar = plt.colorbar(contour, ax=ax, label="AI Value")
+pcm = plt.pcolormesh(
+    GX, GY, ai_map,
+    shading="auto",
+    cmap="viridis"
+)
 
-# Labels and title
-ax.set_xlabel("X Coordinate")
-ax.set_ylabel("Y Coordinate")
-ax.set_title("Acoustic Impedance (AI) Kriging Interpolation Map")
-ax.legend()
-ax.grid(True, alpha=0.3)
+# titik data asli
+plt.scatter(x, y, c="k", s=10, label="Data")
 
+plt.colorbar(pcm, label="Acoustic Impedance")
+plt.xlabel("X")
+plt.ylabel("Y")
+plt.title("AI Map (Kriging)")
+plt.legend()
 plt.tight_layout()
 plt.show()
