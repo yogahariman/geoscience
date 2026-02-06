@@ -1,48 +1,72 @@
-import numpy as np
+# buat lithology prediction dengan cara pemanggilan seperti pada test_WellLog_litho.py
+# 1. preporecessing data misal scaller data X kalo pakai mlp
+# 2. training
+# 3. predicting
+#
+# class bisa diakses oleh user selain python juga, misal user c#, c++, java, go, dll
+# model_type = [
+#     "xgboost",
+#     "random_forest",
+#     "mlp",
+#     "svm",
+#     "naive_bayes"
+# ]
+
 import pandas as pd
+import numpy as np
 
-from geosc.well.ml.lithology import train_lithology, predict_lithology
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score, classification_report
 
-NULL_VALUE = -999.25
+from geosc.well.ml import LithologyPredictor
 
-df_datTrain = pd.read_csv("data_training.csv")
-df_datTrain.replace(NULL_VALUE, np.nan, inplace=True)
-df_datTrain.dropna(inplace=True)
+NULL = -999.25
 
-X = df_datTrain[['ai', 'si', 'vp', 'vs']].values
-y = df_datTrain['lithology'].values
+df_train = pd.read_csv("/Drive/D/Works/DataSample/WellLog_CSV/data_training.csv")
+df_train.replace(NULL, np.nan, inplace=True)
+df_train.dropna(inplace=True)
 
-class_pred, class_prob = train_lithology(
-    X, y,
-    model_type="xgboost",
-    model_out="xgboost_model.pkl",
-    parameters={
-        "n_estimators": 100,
-        "max_depth": 5,
-        "learning_rate": 0.1
-    }
+X = df_train[['vp','vs']].values
+y = df_train['litho_id'].values
+
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42, stratify=y
 )
 
+predictor = LithologyPredictor(model_type="mlp")
+predictor.train(
+    X_train, y_train,
+    parameters=dict(hidden_layer_sizes=(128,64,32), max_iter=50000)
+)
+predictor.save("model_lith.pkl")
 
-df = pd.read_csv("data_welllog.csv")
+pred_test, _ = predictor.predict(X_test)
+print("Accuracy:", accuracy_score(y_test, pred_test))
+print(classification_report(y_test, pred_test))
+
+# -------- predict --------
+
+df = pd.read_csv("/Drive/D/Works/DataSample/WellLog_CSV/data_training.csv")
+df.replace(NULL, np.nan, inplace=True)
+df.ffill(inplace=True)
+
 depth = df['depth'].values
+X = df[['vp','vs']].values
 
+predictor = LithologyPredictor.load("model_lith.pkl")
+lith_pred, lith_prob = predictor.predict(X)
 
-df.replace(NULL_VALUE, np.nan, inplace=True)
-df.fillna(method='ffill', inplace=True)
-
-
-X = df[['ai', 'si', 'vp', 'vs']].values
-
-lith_pred, lith_prob = predict_lithology(
-    X,
-    model="xgboost_model.pkl"
-)
-
+# print(lith_pred)
+lith_pred = lith_pred.astype(float)
+lith_pred = np.where(np.isnan(lith_pred), NULL, lith_pred)
 df_out = pd.DataFrame({
 'depth': depth,
 'lithology_pred': lith_pred
 })
+
+if lith_prob is not None:
+    for idx in range(lith_prob.shape[1]):
+        df_out[f"lithology_prob_{idx}"] = lith_prob[:, idx]
 
 
 df_out.to_csv("output_lithology.csv", index=False)

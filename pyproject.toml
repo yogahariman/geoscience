@@ -10,7 +10,10 @@ authors = [{ name = "Yoga Hariman" }]
 dependencies = [
     "numpy",
     "scipy",
-    "segyio"
+    "segyio",
+    "pandas",
+    "scikit-learn",
+    "xgboost",
 ]
 
 [tool.setuptools.packages.find]
