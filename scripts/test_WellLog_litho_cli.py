@@ -8,7 +8,7 @@ import json
 import numpy as np
 import pandas as pd
 
-from geosc.well.ml import LithologyPredictor
+from geosc.ml import LithologyPredictor, DataCleaner
 
 
 def _parse_params(raw: str | None) -> dict:
@@ -22,14 +22,6 @@ def _parse_params(raw: str | None) -> dict:
 
 def _parse_features(raw: str) -> list[str]:
     return [f.strip() for f in raw.split(",") if f.strip()]
-
-
-def _mask_null_rows(X: np.ndarray, null_value: float | None) -> np.ndarray:
-    if null_value is None:
-        return X
-    X = np.asarray(X, dtype=float)
-    X[X == null_value] = np.nan
-    return X
 
 
 def main() -> None:
@@ -68,7 +60,8 @@ def main() -> None:
         X = df[features].values
         y = df[args.target].values
 
-        X = _mask_null_rows(X, args.null_value)
+        cleaner = DataCleaner(null_value=args.null_value)
+        X, y = cleaner.clean_data_training(X, y, null_value=args.null_value)
 
         predictor = LithologyPredictor(model_type=args.model_type)
         predictor.train(
@@ -85,7 +78,8 @@ def main() -> None:
         features = _parse_features(args.features)
         X = df[features].values
 
-        X = _mask_null_rows(X, args.null_value)
+        cleaner = DataCleaner(null_value=args.null_value)
+        X = cleaner.clean_data_prediction(X, null_value=args.null_value)
 
         predictor = LithologyPredictor.load(args.model)
         pred, prob = predictor.predict(X, null_value=args.output_null_value)

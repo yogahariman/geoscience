@@ -5,7 +5,7 @@
 - **Seismic attributes**: 20+ signal processing algorithms (coherence, instantaneous phase, amplitude-weighted derivatives, etc.)
 - **SEG-Y I/O**: Binary seismic data format reading/writing with header management
 - **Map/Gridding**: Spatial interpolation (IDW, kriging via scikit-gstat)
-- **Well data tools**: Stub for future well log integration
+- **Machine Learning**: Classification, regression, clustering, and lithology prediction for well logs
 - **Plotting**: 2D/3D seismic visualization
 
 The project is designed as a pip-installable package (`pip install -e .`) with modular architecture separating low-level I/O from high-level algorithms.
@@ -55,7 +55,13 @@ geosc/
     plotting/           ← SeismicPlot2D, SeismicPlot3D (matplotlib-based)
   map/
     gridding/           ← IDW & kriging interpolation
-  well/                 ← Placeholder for future development
+  ml/                   ← Machine Learning module
+    cleaning.py         ← DataCleaner class for data preprocessing
+    classification.py   ← Classifier (ML classification models)
+    regression.py       ← Regressor (ML regression models)
+    clustering.py       ← Clusterer (unsupervised clustering)
+    lithology.py        ← LithologyPredictor (domain-specific classification)
+  well/                 ← Placeholder for future well log integration
 scripts/                ← CLI scripts and test examples
 ```
 
@@ -78,6 +84,40 @@ scripts/                ← CLI scripts and test examples
 4. Add import + export in `geosc/seismic/attributes/__init__.py` under appropriate comment section
 5. Create test script in `scripts/test_myattribute.py` following existing patterns
 6. Base class `.run()` handles: SEG-Y I/O, iteration, NaN cleanup, output spec
+
+### Machine Learning Workflow
+The ML module provides unified classes for well log analysis: `Classifier`, `Regressor`, `Clusterer`, and `LithologyPredictor`. All use consistent APIs:
+
+**Key components:**
+- **`DataCleaner`**: Preprocesses features/targets
+  - `clean_data_training(X, y)`: Replace nulls with NaN, drop invalid rows
+  - `clean_data_prediction(X)`: Replace nulls with NaN, keep all rows
+- **Model classes**: `Classifier`, `Regressor`, `Clusterer`, `LithologyPredictor`
+  - `train(X, y, parameters=dict(...), scale_x=True)`: Train model
+  - `predict(X, null_value=NULL)`: Predictions with NaN handling
+  - `save(path)` / `load(path)`: Pickle serialization
+  - Supported models: xgboost, random_forest, mlp, svm, naive_bayes (classification); add kmeans, dbscan, gmm, agglomerative (clustering)
+
+**Usage pattern:**
+```python
+from geosc.ml import DataCleaner, Classifier
+
+cleaner = DataCleaner(null_value=-999.25)
+X, y = cleaner.clean_data_training(X, y)  # Drop rows with NaN
+
+model = Classifier(model_type="mlp")
+model.train(X, y, parameters=dict(hidden_layer_sizes=(128, 64)), scale_x=True)
+model.save("model.pkl")
+
+X_pred = cleaner.clean_data_prediction(X_new)  # Keep all rows
+predictions, probabilities = model.predict(X_pred, null_value=-999.25)
+```
+
+See test scripts for examples:
+- `scripts/test_WellLog_classification.py` - Classification workflow
+- `scripts/test_WellLog_regression.py` - Regression workflow
+- `scripts/test_WellLog_clustering.py` - Unsupervised clustering
+- `scripts/test_WellLog_litho.py` - Lithology prediction (domain-specific)
 
 ### Running Attributes from Command Line
 Attributes are instantiated and executed in scripts, not CLI-driven:
@@ -118,7 +158,8 @@ File: `geosc/seismic/plotting/plot2d.py`
 - Used in test scripts post-processing
 
 ## Before Contributing Code
-- **Test locally:** `python scripts/test_*.py` to validate attribute output
+- **Test locally:** `python scripts/test_*.py` to validate attribute output or ML model behavior
 - **Check base class handling:** Verify I/O and memory options work (e.g., 3D coherence with `load_to_ram=True`)
-- **Numerical stability:** Window attributes should gracefully handle edge cases (small windows, NaN-heavy data)
-- **Documentation:** Add docstring to attribute class + example in `README.md` if major new feature
+- **Numerical stability:** Window attributes should gracefully handle edge cases (small windows, NaN-heavy data); ML models must handle NaN input rows
+- **Data cleaning:** ML workflows must use `DataCleaner` for consistent null handling
+- **Documentation:** Add docstring to attribute class or ML class + example in `README.md` if major new feature
