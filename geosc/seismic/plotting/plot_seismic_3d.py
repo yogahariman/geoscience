@@ -76,12 +76,14 @@ class SeismicPlot3D:
         cmap=None,
         title=None,
         colorbar=True,
+        null_value=-999.25,
     ):
         """
         plot_type:
             - 'amplitude'
             - 'coherence'
             - 'semblance'
+            - 'cluster'
         """
 
         plot_type = plot_type.lower()
@@ -98,10 +100,21 @@ class SeismicPlot3D:
             vmin, vmax = 0.0, 1.0
             cmap = cmap or "gray_r"
 
+        elif plot_type == "cluster":
+            valid = data[data != null_value]
+            if valid.size == 0:
+                vmin, vmax = 0.0, 1.0
+            else:
+                vmin = float(np.nanmin(valid))
+                vmax = float(np.nanmax(valid))
+                if vmin == vmax:
+                    vmax = vmin + 1.0
+            cmap = cmap or "tab20"
+
         else:
             raise ValueError(
                 "plot_type harus salah satu dari: "
-                "'amplitude', 'coherence', 'semblance'"
+                "'amplitude', 'coherence', 'semblance', 'cluster'"
             )
 
         tmax = self.ns * self.dt

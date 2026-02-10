@@ -1,0 +1,86 @@
+# contoh seismic clustering 3D (unsupervised)
+# - multi volume
+# - horizon top/bottom (CSV -> matrix [x,y,time])
+# - output SEG-Y cluster labels
+
+import pandas as pd
+import numpy as np
+import segyio
+from geosc.seismic.segy import get_segy_trace_header
+from geosc.seismic import SeismicClusterer
+
+input_segy_list = [
+    "/Drive/D/Works/DataSample/Seismic3D/Sample03_TMT20121220/Attribute/AI_tmt_exp.segy",
+    "/Drive/D/Works/DataSample/Seismic3D/Sample03_TMT20121220/Attribute/SI_tmt_exp.segy",
+]
+
+output_segy = "/Drive/D/Temp/cluster_labels_3d.sgy"
+
+horizon_top_csv = "/Drive/D/Works/DataSample/Seismic3D/Sample03_TMT20121220/Horizon/Horizon_top.csv"
+horizon_base_csv = "/Drive/D/Works/DataSample/Seismic3D/Sample03_TMT20121220/Horizon/Horizon_bottom.csv"
+
+# horizon format: no header, fixed columns [x, y, z/time]
+horizon_top = pd.read_csv(horizon_top_csv, header=None).iloc[:, :3].to_numpy(dtype=float)
+horizon_base = pd.read_csv(horizon_base_csv, header=None).iloc[:, :3].to_numpy(dtype=float)
+
+# header bytes per attribute (3D)
+header_bytes = [
+    {
+        "X": (73, "int32"),
+        "Y": (77, "int32"),
+        "INLINE": (5, "int32"),
+        "XLINE": (21, "int32"),
+    },
+    {
+        "X": (73, "int32"),
+        "Y": (77, "int32"),
+        "INLINE": (5, "int32"),
+        "XLINE": (21, "int32"),
+    },
+]
+
+# time first sample from -LagTimeA (byte 105)
+seis_time_first_sample = []
+for segyfile in input_segy_list:
+    t0 = -get_segy_trace_header(segyfile, 105, "int16")[0]
+    seis_time_first_sample.append(float(t0))
+
+# karena firstime terbalik maka saya kalikan -1 untuk buatnya jadi positif (ms)
+seis_time_first_sample = np.array(seis_time_first_sample, dtype=float) * -1.0  # convert to positive ms
+
+
+# sample interval (dt) and samples per trace (ns)
+with segyio.open(input_segy_list[0], "r", ignore_geometry=True) as f:
+    seis_sample_interval = segyio.tools.dt(f) / 1000.0  # ms
+    seis_sample_pertrace = int(f.samples.size)
+
+cluster_params = {
+    "n_rows": 3,
+    "n_cols": 3,
+    "n_iter": 100,
+    "learning_rate": 0.01,
+    "sigma": None,
+    "random_state": 42,
+}
+
+model_output = "/Drive/D/Temp/model_cluster_3d.pkl"
+
+clusterer = SeismicClusterer(
+    input_segy_list=input_segy_list,
+    output_segy=output_segy,
+    horizon_top=horizon_top,
+    horizon_base=horizon_base,
+    header_bytes=header_bytes,
+    sample_percent=60.0,
+    null_value=-999.25,
+    cluster_params=cluster_params,
+    seed=42,
+    model_type="som",
+    seis_time_first_sample=seis_time_first_sample,
+    dt=seis_sample_interval,
+    ns=seis_sample_pertrace,
+    label_offset=1,
+    model_output=model_output,
+)
+
+clusterer.run()
