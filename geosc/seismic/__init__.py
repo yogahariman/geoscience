@@ -1,5 +1,6 @@
-from .ml import SeismicClusterer
+from .ml import SeismicClusterer, SeismicLithologyPredictor
 
 __all__ = [
     "SeismicClusterer",
+    "SeismicLithologyPredictor",
 ]

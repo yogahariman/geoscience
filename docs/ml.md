@@ -1,116 +1,114 @@
-geoscience/
-├── geosc/
-│   ├── seismic/
-│   │   ├── segy/
-│   │   ├── attributes/
-│   │   ├── plotting/
-│   │   ├── ml/
-│   │   │   ├── __init__.py
-│   │   │   ├── lithology/
-│   │   │   ├── vsh/
-│   │   │   ├── porosity/
-│   │   │   ├── sw/
-│   │   │   └── porepressure/
-│   │
-│   ├── well/
-│   │   ├── las/
-│   │   ├── logs/
-│   │   └── ml/
-│   │       ├── lithology/
-│   │       ├── vsh/
-│   │       ├── porosity/
-│   │       ├── sw/
-│   │       └── porepressure/
-│   │
-│   ├── map/
-│   │   ├── gridding/
-│   │   ├── geo/
-│   │   └── ml/
-│   │       ├── lithology/
-│   │       ├── vsh/
-│   │       ├── porosity/
-│   │       ├── sw/
-│   │       └── porepressure/
-│   │
-│   ├── ml/
-│   │   ├── __init__.py
-│   │   ├── datasets/
-│   │   │   ├── base.py
-│   │   │   ├── seismic.py
-│   │   │   ├── well.py
-│   │   │   └── map.py
-│   │   │
-│   │   ├── preprocessing/
-│   │   │   ├── normalization.py
-│   │   │   ├── scaler.py
-│   │   │   └── splitter.py
-│   │   │
-│   │   ├── models/
-│   │   │   ├── base.py
-│   │   │   ├── classification/
-│   │   │   │   ├── bpnn.py
-│   │   │   │   ├── naive_bayes.py
-│   │   │   │   └── svm.py
-│   │   │   │
-│   │   │   ├── regression/
-│   │   │   │   ├── bpnn.py
-│   │   │   │   └── linear.py
-│   │   │   │
-│   │   │   └── clustering/
-│   │   │       ├── som.py
-│   │   │       └── kmeans.py
-│   │   │
-│   │   ├── pipelines/
-│   │   │   ├── classification.py
-│   │   │   ├── regression.py
-│   │   │   └── clustering.py
-│   │   │
-│   │   └── outputs/
-│   │       ├── matrix.py
-│   │       ├── seismic.py
-│   │       ├── well.py
-│   │       └── map.py
-│   │
-│   └── utils/
-│       ├── io.py
-│       ├── math.py
-│       └── validation.py
+# ML Guide
 
-1. untuk load data misal dari csv atau txt itu dilakukan diluar modul saja biar lebih flexsibel user mau ambil data darimana
-2. konsepnya training->save model->prediksi
-3. untuk klasifikasi naive bayes bisa dibuat Decision Boundary Plot terus output prediksi probabilitas dan class
-3. data_training untuk kasus well,seismic, dan map itu sama berupa
-    X = [atb1, atb2, atb3]
-    y = target
-4. data_prediksi well adalah X = [atb1, atb2, atb3]
-5. data_prediksi map adalah X = [atb1, atb2, atb3]
-6. untuk kasus seismic di hold dulu karena komplex    
-7. data_prediksi seismic inputan berupa seismic maka
-    a. parameter posisi inline, xline,x,y
-    b. horizon atas [x, y, t]
-    c. horizon bawah [x, y, t]
-    d. samakan posisi tiap trace berdasarkan inline xline
-    e. proses dilakukan per-trace dengan batas horizon atas dan horizon bawah
+Dokumen ini menjelaskan alur ML yang sudah diimplementasikan di project ini.
 
-    headers = get_segy_trace_headers(
-        "data.sgy",
-        {
-            "INLINE": (25, "int32"),
-            "XLINE":  (29, "int32"),
-            "X": (73, "int32"),
-            "Y": (77, "int32"),
-        }
-    )
-    INLINE = headers["INLINE"]
-    XLINE  = headers["XLINE"]
-    X      = headers["X"]
-    Y      = headers["Y"]
+## Modul Utama
 
+- `geosc.ml`
+  - `DataCleaner`: cleaning data training/prediksi
+  - `Classifier`: supervised classification (xgboost, random_forest, mlp, svm, naive_bayes)
+  - `Regressor`: supervised regression
+  - `Clusterer`: unsupervised clustering
+- `geosc.seismic.ml`
+  - `SeismicClusterer`: clustering seismic dalam interval horizon
+  - `SeismicLithologyPredictor`: prediksi lithology seismic (predict-only dari model `Classifier`)
+- `geosc.plotting`
+  - `NaiveBayesGaussianContour2D`: plotting Gaussian contour NB 2D (generic tabular)
 
-classification
-from sklearn.neural_network import MLPClassifier
-from sklearn.naive_bayes import GaussianNB
-from sklearn.svm import svc
+## Prinsip Workflow
 
-from sklearn.neural_network import MLPRegressor
-    
+1. Load data dilakukan di luar modul (CSV/TXT/DB/SEG-Y bebas).
+2. Alur umum: `training -> save model -> prediction`.
+3. Null handling konsisten dengan `null_value` (default `-999.25`).
+
+## Workflow Classification (Well/Tabular)
+
+```python
+from geosc.ml import DataCleaner, Classifier
+
+cleaner = DataCleaner(null_value=-999.25)
+X_train, y_train = cleaner.clean_data_training(X, y)
+
+model = Classifier(model_type="mlp")
+model.train(X_train, y_train, parameters={"max_iter": 1000}, scale_x=True)
+model.save("model_lith.pkl")
+
+X_pred = cleaner.clean_data_prediction(X_pred)
+y_pred, y_prob = model.predict(X_pred, null_value=-999.25)
+```
+
+## Workflow Seismic Lithology Prediction
+
+`SeismicLithologyPredictor` memakai model hasil `Classifier.save(...)`.
+
+Input utama:
+- `input_segy_list`: 1..N volume atribut seismic
+- `header_bytes`: mapping header (`X`, `Y`, plus `INLINE+XLINE` atau `CDP`)
+- `horizon_top` / `horizon_base`: array `Nx3 [x, y, t]`
+- `model_path`: file model `.pkl`
+
+```python
+from geosc.seismic import SeismicLithologyPredictor
+
+predictor = SeismicLithologyPredictor(
+    input_segy_list=input_segy_list,
+    output_segy=output_segy,
+    horizon_top=horizon_top,
+    horizon_base=horizon_base,
+    header_bytes=header_bytes,
+    model_path="model_lith.pkl",
+    output_mode="labels",   # labels | prob_class | max_prob
+    probability_class=1,      # wajib jika output_mode="prob_class"
+    null_value=-999.25,
+)
+predictor.run()
+```
+
+### `output_mode` pada Seismic Lithology
+
+- `labels`
+  - Output SEG-Y berisi label class hasil prediksi.
+- `prob_class`
+  - Output SEG-Y berisi probabilitas untuk satu class tertentu (`probability_class`).
+- `max_prob`
+  - Output SEG-Y berisi probabilitas maksimum antar semua class (confidence) untuk QC.
+
+## Contoh Script
+
+- `scripts/test_WellLog_classification.py`
+- `scripts/test_WellLog_regression.py`
+- `scripts/test_WellLog_clustering.py`
+- `scripts/test_WellLog_litho.py`
+- `scripts/test_seismic_clustering_2d.py`
+- `scripts/test_seismic_clustering_3d.py`
+- `scripts/test_seismic_lithology_prediction_2d.py`
+- `scripts/test_seismic_lithology_prediction_3d.py`
+- `scripts/plot_seismic_clustering_2d.py`
+- `scripts/plot_seismic_clustering_3d.py`
+- `scripts/plot_seismic_lithology_2d.py`
+- `scripts/plot_seismic_lithology_3d.py`
+- `scripts/plot_naive_bayes_gaussian_contours_2d.py`
+
+## Plotting Lithology (Custom Class Colors)
+
+Helper plotting lithology ada di:
+- `geosc/seismic/plotting/lithology_utils.py`
+
+Fungsi utama:
+- `build_discrete_style(values, class_colors)`
+- `mask_null_values(data, null_value)`
+
+Contoh mapping warna:
+
+```python
+CLASS_COLORS = {
+    1: "red",
+    2: "green",
+    3: "yellow",
+    4: "blue",
+    5: "black",
+}
+```
+
+Catatan:
+- Jika ada class yang belum didefinisikan di `CLASS_COLORS`, warna fallback dari `tab20` akan dipakai.

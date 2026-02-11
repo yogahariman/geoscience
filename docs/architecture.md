@@ -1,85 +1,68 @@
-geoscience/                     ← repo name & pip package name
-├── geosc/                      ← python namespace
-│   ├── __init__.py
-│   │
-│   ├── ml/
-│   │   ├── __init__.py
-│   │   ├── supervised/
-│   │   │   ├── classification
-│   │   │   ├── regression
-│   │   ├── unsupervised/
-│   │   │   ├── clustering
-│   │
-│   ├── seismic/
-│   │   ├── __init__.py
-│   │   │
-│   │   ├── segy/               ← SEG-Y I/O & low-level tools
-│   │   │   ├── __init__.py
-│   │   │   ├── reader.py       ← read SEG-Y
-│   │   │   ├── writer.py       ← write SEG-Y
-│   │   │   ├── headers.py      ← trace/binary/text headers
-│   │   │   ├── geometry.py     ← inline/xline/cdp/offset mapping
-│   │   │   └── utils.py        ← helpers (scaling, endian, etc.)
-│   │   │
-│   │   ├── attributes/
-│   │   │   ├── __init__.py     ← PUBLIC API
-│   │   │   │
-│   │   │   ├── base/
-│   │   │   │   ├── trace.py
-│   │   │   │   └── window.py
-│   │   │   │
-│   │   │   ├── coherence2d.py
-│   │   │   ├── coherence3d.py
-│   │   │   ├── semblance2d.py
-│   │   │   ├── semblance3d.py
-│   │   │   │
-│   │   │   ├── instantaneous_amplitude.py
-│   │   │   ├── instantaneous_frequency.py
-│   │   │   ├── instantaneous_phase.py
-│   │   │   ├── cosine_instantaneous_phase.py
-│   │   │   │
-│   │   │   ├── amplitude_weighted_phase.py
-│   │   │   ├── amplitude_weighted_frequency.py
-│   │   │   ├── amplitude_weighted_cosine_phase.py
-│   │   │   │
-│   │   │   ├── integrate_traces.py
-│   │   │   ├── integrate_absolute_amplitude.py
-│   │   │   │
-│   │   │   ├── derivative.py
-│   │   │   ├── second_derivative.py
-│   │   │   ├── derivative_instantaneous_amplitude.py
-│   │   │   ├── second_derivative_inst_amp.py
-│   │   │   │
-│   │   │   └── quadrature.py
-│   │   │
-│   │   ├── plotting/
-│   │   │   ├── __init__.py
-│   │   │   ├── plot2d.py
-│   │   │   └── plot3d.py
-│   │   │
-│   ├── well/
-│   │   └── __init__.py
-│   │
-│   ├── map/
-│   │   └── __init__.py
-│   │
-├── scripts/                    ← CLI / experiment scripts
-├── pyproject.toml
-└── README.md
+# Architecture
 
+Struktur implementasi saat ini (ringkas):
 
+```text
 geoscience/
 ├── geosc/
 │   ├── __init__.py
-│   │
 │   ├── ml/
 │   │   ├── __init__.py
-│   │   ├── supervised/
-│   │   │   ├── classification
-│   │   │   ├── regression
-│   │   ├── unsupervised/
-│   │   │   ├── clustering
-│   │
-│   ├── map/
+│   │   ├── cleaning.py
+│   │   ├── classification.py
+│   │   ├── regression.py
+│   │   ├── clustering.py
+│   │   └── lithology.py
+│   ├── plotting/
+│   │   ├── __init__.py
+│   │   └── classification_2d.py
 │   ├── seismic/
-│   ├── well/
+│   │   ├── __init__.py
+│   │   ├── segy/
+│   │   ├── attributes/
+│   │   ├── plotting/
+│   │   └── ml/
+│   │       ├── __init__.py
+│   │       ├── clustering.py
+│   │       └── lithology.py
+│   ├── map/
+│   │   └── gridding/
+│   └── well/
+│       └── __init__.py
+├── scripts/
+├── docs/
+├── pyproject.toml
+└── README.md
+```
+
+## Layering
+
+- Core ML (`geosc.ml`)
+  - Menangani training/predict model umum (tabular) + cleaning data.
+- Generic plotting (`geosc.plotting`)
+  - Plot reusable lintas domain (well/map/XRD/tabular).
+  - Contoh: `NaiveBayesGaussianContour2D`.
+- Domain Seismic ML (`geosc.seismic.ml`)
+  - Menangani alignment trace antar-volume, pembatasan interval horizon, dan tulis output SEG-Y.
+  - Memakai model dari `geosc.ml` (mis. `Classifier.load`).
+- Script layer (`scripts/`)
+  - Contoh penggunaan end-to-end untuk 2D/3D dan well/seismic.
+- Seismic plotting utils (`geosc.seismic.plotting`)
+  - Plot 2D/3D umum: `SeismicPlot2D`, `SeismicPlot3D`
+  - Util lithology discrete colors: `lithology_utils.py`
+
+## Seismic ML Data Flow
+
+1. Baca trace headers (`X`,`Y`,`INLINE/XLINE` atau `CDP`) dari semua volume.
+2. Align trace berdasarkan key geometri yang beririsan.
+3. Cocokkan `horizon_top/base` via nearest `X,Y`.
+4. Bangun fitur multi-atribut per sample dalam interval horizon.
+5. Jalankan model:
+   - clustering: fit + predict
+   - lithology: load classifier + predict
+6. Tulis output ke SEG-Y template (copy dari volume referensi).
+
+## Public API (seismic)
+
+- `from geosc.seismic import SeismicClusterer`
+- `from geosc.seismic import SeismicLithologyPredictor`
