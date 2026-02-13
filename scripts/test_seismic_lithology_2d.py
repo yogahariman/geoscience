@@ -141,7 +141,7 @@ print("Model exists:", os.path.exists(model_path), model_path)
 output_mode = "labels"
 probability_class = 1  # dipakai hanya jika output_mode="prob_class"
 
-horizon_top_csv = "/Drive/D/Works/DataSample/Seismic2D/Sample04(CNOOC)/Horizon/Hor_0.csv"
+horizon_top_csv = "/Drive/D/Works/DataSample/Seismic2D/Sample04(CNOOC)/Horizon/BRF.csv"
 horizon_base_csv = "/Drive/D/Works/DataSample/Seismic2D/Sample04(CNOOC)/Horizon/Basement+100.csv"
 
 # horizon format: no header, fixed columns [x, y, z/time]
@@ -167,15 +167,22 @@ seis_time_first_sample = []
 for line in input_segy_list:
     row = []
     for segyfile in line:
-        t0 = -get_segy_trace_header(segyfile, 105, "int16")[0]
-        row.append(float(t0))
+        t0_val = -get_segy_trace_header(segyfile, 105, "int16")[0]
+        row.append(float(t0_val))
     seis_time_first_sample.append(row)
 
-# sample interval (dt) and samples per trace (ns)
-_ref_segy = input_segy_list[0][0]
-with segyio.open(_ref_segy, "r", ignore_geometry=True) as f:
-    seis_sample_interval = segyio.tools.dt(f) / 1000.0  # ms
-    seis_sample_pertrace = int(f.samples.size)
+# sample interval (dt) and samples per trace (ns) per seismic
+seis_sample_interval = []
+seis_sample_pertrace = []
+for line in input_segy_list:
+    dt_row = []
+    ns_row = []
+    for segyfile in line:
+        with segyio.open(segyfile, "r", ignore_geometry=True) as f:
+            dt_row.append(segyio.tools.dt(f) / 1000.0)  # ms
+            ns_row.append(int(f.samples.size))
+    seis_sample_interval.append(dt_row)
+    seis_sample_pertrace.append(ns_row)
 
 predictor = SeismicLithologyPredictor(
     input_segy_list=input_segy_list,
@@ -187,7 +194,7 @@ predictor = SeismicLithologyPredictor(
     null_value=-999.25,
     output_mode=output_mode,
     probability_class=probability_class,
-    seis_time_first_sample=seis_time_first_sample,
+    t0=seis_time_first_sample,
     dt=seis_sample_interval,
     ns=seis_sample_pertrace,
 )

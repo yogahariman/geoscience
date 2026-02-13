@@ -13,12 +13,18 @@ from geosc.ml import Regressor, DataCleaner
 
 NULL = -999.25
 
-FEATURE_COLS = ["vp", "vs"]
-TARGET_COL = "vsh"
+DATA_PATH = "/Drive/D/Works/DataSample/Seismic2D/Sample04(CNOOC)/WellLog/WellLogCNOOC_CNOOC-2D.csv"
+FEATURE_COLS = ["AI", "SI"]
+TARGET_COL = "VSH"
+DEPTH_COL = "DepthMD"
 
 # -------- training --------
 
-df_train = pd.read_csv("/Drive/D/Works/DataSample/WellLog_CSV/data_training.csv")
+df_train = pd.read_csv(
+    DATA_PATH,
+    header=0,
+    skiprows=[1],
+)
 X = df_train[FEATURE_COLS].values
 y = df_train[TARGET_COL].values
 
@@ -34,7 +40,7 @@ predictor.train(
     X_train, y_train,
     parameters=dict(hidden_layer_sizes=(128, 64, 32), max_iter=50000),
     scale_x=True,
-    scale_y=False
+    scale_y=True,
 )
 predictor.save("/Drive/D/Temp/model_vsh.pkl")
 
@@ -46,7 +52,7 @@ print("R2:", r2_score(y_test, pred_test))
 
 # -------- predict --------
 
-df = pd.read_csv("/Drive/D/Works/DataSample/WellLog_CSV/data_training.csv")
+df = pd.read_csv(DATA_PATH)
 X = df[FEATURE_COLS].values
 
 X = cleaner.clean_data_prediction(X)
@@ -61,8 +67,8 @@ df_out = pd.DataFrame({
     "vsh_pred": vsh_pred
 })
 
-if "depth" in df.columns:
-    df_out.insert(0, "depth", df["depth"].values)
+if DEPTH_COL in df.columns:
+    df_out.insert(0, DEPTH_COL, df[DEPTH_COL].values)
 
 
 df_out.to_csv("/Drive/D/Temp/output_vsh.csv", index=False)

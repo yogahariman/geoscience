@@ -43,6 +43,7 @@ def main() -> None:
     predict_parser.add_argument("--features", required=True, help="Comma-separated feature columns")
     predict_parser.add_argument("--model", required=True, help="Trained model path (.pkl)")
     predict_parser.add_argument("--output", required=True, help="Output CSV file")
+    predict_parser.add_argument("--depth-col", default="DepthMD", help="Depth column name")
     predict_parser.add_argument("--null-value", type=float, default=None, help="Treat this value as NULL")
     predict_parser.add_argument(
         "--output-null-value",
@@ -84,8 +85,11 @@ def main() -> None:
         predictor = LithologyPredictor.load(args.model)
         pred, prob = predictor.predict(X, null_value=args.output_null_value)
 
-        df_out = df.copy()
-        df_out["lithology_pred"] = pred
+        df_out = pd.DataFrame({
+            "lithology_pred": pred
+        })
+        if args.depth_col in df.columns:
+            df_out.insert(0, args.depth_col, df[args.depth_col].values)
         if args.probabilities and prob is not None:
             for idx in range(prob.shape[1]):
                 df_out[f"lithology_prob_{idx}"] = prob[:, idx]

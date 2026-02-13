@@ -6,6 +6,7 @@
 - **SEG-Y I/O**: Binary seismic data format reading/writing with header management
 - **Map/Gridding**: Spatial interpolation (IDW, kriging via scikit-gstat)
 - **Machine Learning**: Classification, regression, clustering, and lithology prediction for well logs
+- **Seismic ML**: Horizon-constrained classification/regression/clustering/lithology prediction on multi-attribute SEG-Y
 - **Plotting**: 2D/3D seismic visualization
 
 The project is designed as a pip-installable package (`pip install -e .`) with modular architecture separating low-level I/O from high-level algorithms.
@@ -53,6 +54,7 @@ geosc/
       base/             ← TraceAttribute, WindowAttribute base classes
       *.py              ← 20+ algorithm implementations
     plotting/           ← SeismicPlot2D, SeismicPlot3D (matplotlib-based)
+    ml/                 ← SeismicMLBase, SeismicClassifier, SeismicRegressor, SeismicClusterer, SeismicLithologyPredictor
   map/
     gridding/           ← IDW & kriging interpolation
   ml/                   ← Machine Learning module
@@ -114,10 +116,12 @@ predictions, probabilities = model.predict(X_pred, null_value=-999.25)
 ```
 
 See test scripts for examples:
-- `scripts/test_WellLog_classification.py` - Classification workflow
 - `scripts/test_WellLog_regression.py` - Regression workflow
 - `scripts/test_WellLog_clustering.py` - Unsupervised clustering
 - `scripts/test_WellLog_litho.py` - Lithology prediction (domain-specific)
+- `scripts/test_seismic_lithology_2d.py` / `scripts/test_seismic_lithology_3d.py` - Seismic lithology prediction
+- `scripts/test_seismic_regression_2d.py` / `scripts/test_seismic_regression_3d.py` - Seismic regression prediction
+- `scripts/test_seismic_clustering_2d.py` / `scripts/test_seismic_clustering_3d.py` - Seismic clustering
 
 ### Running Attributes from Command Line
 Attributes are instantiated and executed in scripts, not CLI-driven:
@@ -153,7 +157,7 @@ File: `geosc/seismic/segy/trace_headers.py`
 - For byte position lookups: Pass explicit positions (e.g., `inline_byte=121`) to attribute classes
 
 ### 3. Plotting Integration
-File: `geosc/seismic/plotting/plot2d.py`
+File: `geosc/seismic/plotting/plot_seismic_2d.py`
 - `SeismicPlot2D(segy_path).plot(plot_type="amplitude")` for visualization
 - Used in test scripts post-processing
 

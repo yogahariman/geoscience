@@ -58,16 +58,19 @@ print("Model exists:", os.path.exists(model_path), model_path)
 # time first sample from -LagTimeA (byte 105)
 seis_time_first_sample = []
 for segyfile in input_segy_list:
-    t0 = -get_segy_trace_header(segyfile, 105, "int16")[0]
-    seis_time_first_sample.append(float(t0))
+    t0_val = -get_segy_trace_header(segyfile, 105, "int16")[0]
+    seis_time_first_sample.append(float(t0_val))
 
 # jika perlu, sesuaikan sign t0 dengan data Anda
 seis_time_first_sample = np.array(seis_time_first_sample, dtype=float)
 
-# sample interval (dt) and samples per trace (ns)
-with segyio.open(input_segy_list[0], "r", ignore_geometry=True) as f:
-    seis_sample_interval = segyio.tools.dt(f) / 1000.0  # ms
-    seis_sample_pertrace = int(f.samples.size)
+# sample interval (dt) and samples per trace (ns) per seismic
+seis_sample_interval = []
+seis_sample_pertrace = []
+for segyfile in input_segy_list:
+    with segyio.open(segyfile, "r", ignore_geometry=True) as f:
+        seis_sample_interval.append(segyio.tools.dt(f) / 1000.0)  # ms
+        seis_sample_pertrace.append(int(f.samples.size))
 
 predictor = SeismicLithologyPredictor(
     input_segy_list=input_segy_list,
@@ -79,7 +82,7 @@ predictor = SeismicLithologyPredictor(
     null_value=-999.25,
     output_mode=output_mode,
     probability_class=probability_class,
-    seis_time_first_sample=seis_time_first_sample,
+    t0=seis_time_first_sample,
     dt=seis_sample_interval,
     ns=seis_sample_pertrace,
 )

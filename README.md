@@ -32,6 +32,8 @@ A comprehensive Python library for seismic data processing, geoanalysis, and mac
 ### 🌊 Seismic ML
 - **Seismic Clustering**: Horizon-constrained unsupervised clustering from multi-attribute SEG-Y volumes
 - **Seismic Lithology Prediction**: Horizon-constrained prediction using trained `geosc.ml.Classifier` model
+- **Seismic Classification**: Generic horizon-constrained classification using trained `geosc.ml.Classifier` model
+- **Seismic Regression**: Horizon-constrained continuous prediction using trained `geosc.ml.Regressor` model
   - `output_mode="labels"`: predicted class labels
   - `output_mode="prob_class"`: probability of one selected class
   - `output_mode="max_prob"`: maximum class probability (model confidence)
@@ -150,7 +152,7 @@ geosc/
 │   │   ├── base/                # TraceAttribute, WindowAttribute base classes
 │   │   ├── *.py                 # 20+ seismic attribute implementations
 │   ├── plotting/                # SeismicPlot2D, SeismicPlot3D
-│   ├── ml/                      # SeismicClusterer, SeismicLithologyPredictor
+│   ├── ml/                      # SeismicMLBase + SeismicClassifier/Regressor/Clusterer/LithologyPredictor
 │
 ├── map/
 │   ├── gridding/                # IDW & kriging interpolation
@@ -232,10 +234,53 @@ predictor = SeismicLithologyPredictor(
     output_mode="labels",          # labels | prob_class | max_prob
     probability_class=1,           # required only for prob_class
     null_value=-999.25,
+    t0=seis_time_first_sample,
     dt=seis_sample_interval,
     ns=seis_sample_pertrace,
 )
 predictor.run()
+```
+
+### Seismic Classification Workflow
+
+```python
+from geosc.seismic import SeismicClassifier
+
+classifier = SeismicClassifier(
+    input_segy_list=input_segy_list,
+    output_segy=output_segy,
+    horizon_top=horizon_top,
+    horizon_base=horizon_base,
+    header_bytes=header_bytes,
+    model_path="model_classification.pkl",  # from geosc.ml.Classifier.save(...)
+    output_mode="labels",                   # labels | prob_class | max_prob
+    probability_class=1,                    # required only for prob_class
+    null_value=-999.25,
+    t0=seis_time_first_sample,
+    dt=seis_sample_interval,
+    ns=seis_sample_pertrace,
+)
+classifier.run()
+```
+
+### Seismic Regression Workflow
+
+```python
+from geosc.seismic import SeismicRegressor
+
+regressor = SeismicRegressor(
+    input_segy_list=input_segy_list,
+    output_segy=output_segy,
+    horizon_top=horizon_top,
+    horizon_base=horizon_base,
+    header_bytes=header_bytes,
+    model_path="model_regression.pkl",      # from geosc.ml.Regressor.save(...)
+    null_value=-999.25,
+    t0=seis_time_first_sample,
+    dt=seis_sample_interval,
+    ns=seis_sample_pertrace,
+)
+regressor.run()
 ```
 
 ## Usage Examples
@@ -243,14 +288,15 @@ predictor.run()
 See `scripts/` directory for complete examples:
 
 - `test_attribute_*.py` - Seismic attribute examples
-- `test_WellLog_classification.py` - Classification workflow
 - `test_WellLog_regression.py` - Regression workflow
 - `test_WellLog_clustering.py` - Unsupervised clustering
 - `test_WellLog_litho.py` - Lithology prediction
 - `test_seismic_clustering_2d.py` / `test_seismic_clustering_3d.py` - Seismic clustering
-- `test_seismic_lithology_prediction_2d.py` / `test_seismic_lithology_prediction_3d.py` - Seismic lithology prediction
+- `test_seismic_lithology_2d.py` / `test_seismic_lithology_3d.py` - Seismic lithology prediction
+- `test_seismic_regression_2d.py` / `test_seismic_regression_3d.py` - Seismic regression prediction
 - `plot_seismic_clustering_2d.py` / `plot_seismic_clustering_3d.py` - Plot clustering results
 - `plot_seismic_lithology_2d.py` / `plot_seismic_lithology_3d.py` - Plot lithology with custom class colors
+- `plot_seismic_regression_2d.py` - Plot regression results
 - `plot_naive_bayes_gaussian_contours_2d.py` - Generic 2D Gaussian NB contour plot
 
 ### Running Examples
@@ -259,7 +305,7 @@ See `scripts/` directory for complete examples:
 cd /Drive/D/geoscience
 pip install -e .
 python scripts/test_attribute_2d.py
-python scripts/test_WellLog_classification.py
+python scripts/test_WellLog_litho.py
 ```
 
 ## Adding New Features

@@ -10,6 +10,9 @@ Dokumen ini menjelaskan alur ML yang sudah diimplementasikan di project ini.
   - `Regressor`: supervised regression
   - `Clusterer`: unsupervised clustering
 - `geosc.seismic.ml`
+  - `SeismicMLBase`: base class internal untuk shared workflow seismic ML (`t0`, `dt`, `ns`, alignment, interval mapping)
+  - `SeismicClassifier`: classification seismic generik (predict-only dari model `Classifier`)
+  - `SeismicRegressor`: regression seismic generik (predict-only dari model `Regressor`)
   - `SeismicClusterer`: clustering seismic dalam interval horizon
   - `SeismicLithologyPredictor`: prediksi lithology seismic (predict-only dari model `Classifier`)
 - `geosc.plotting`
@@ -60,8 +63,59 @@ predictor = SeismicLithologyPredictor(
     output_mode="labels",   # labels | prob_class | max_prob
     probability_class=1,      # wajib jika output_mode="prob_class"
     null_value=-999.25,
+    t0=seis_time_first_sample,
+    dt=seis_sample_interval,
+    ns=seis_sample_pertrace,
 )
 predictor.run()
+```
+
+## Workflow Seismic Classification
+
+`SeismicClassifier` adalah API publik classification seismic generik.
+Secara workflow sama dengan seismic lithology, tapi naming class dibuat lebih umum.
+
+```python
+from geosc.seismic import SeismicClassifier
+
+classifier = SeismicClassifier(
+    input_segy_list=input_segy_list,
+    output_segy=output_segy,
+    horizon_top=horizon_top,
+    horizon_base=horizon_base,
+    header_bytes=header_bytes,
+    model_path="model_classification.pkl",
+    output_mode="labels",    # labels | prob_class | max_prob
+    probability_class=1,     # wajib jika output_mode="prob_class"
+    null_value=-999.25,
+    t0=seis_time_first_sample,
+    dt=seis_sample_interval,
+    ns=seis_sample_pertrace,
+)
+classifier.run()
+```
+
+## Workflow Seismic Regression
+
+`SeismicRegressor` adalah API publik regression seismic generik.
+Workflow-nya sama (alignment antar-volume + pembatasan interval horizon), namun model yang dipakai dari `Regressor`.
+
+```python
+from geosc.seismic import SeismicRegressor
+
+regressor = SeismicRegressor(
+    input_segy_list=input_segy_list,
+    output_segy=output_segy,
+    horizon_top=horizon_top,
+    horizon_base=horizon_base,
+    header_bytes=header_bytes,
+    model_path="model_regression.pkl",  # dari geosc.ml.Regressor.save(...)
+    null_value=-999.25,
+    t0=seis_time_first_sample,
+    dt=seis_sample_interval,
+    ns=seis_sample_pertrace,
+)
+regressor.run()
 ```
 
 ### `output_mode` pada Seismic Lithology
@@ -75,18 +129,20 @@ predictor.run()
 
 ## Contoh Script
 
-- `scripts/test_WellLog_classification.py`
 - `scripts/test_WellLog_regression.py`
 - `scripts/test_WellLog_clustering.py`
 - `scripts/test_WellLog_litho.py`
 - `scripts/test_seismic_clustering_2d.py`
 - `scripts/test_seismic_clustering_3d.py`
-- `scripts/test_seismic_lithology_prediction_2d.py`
-- `scripts/test_seismic_lithology_prediction_3d.py`
+- `scripts/test_seismic_lithology_2d.py`
+- `scripts/test_seismic_lithology_3d.py`
+- `scripts/test_seismic_regression_2d.py`
+- `scripts/test_seismic_regression_3d.py`
 - `scripts/plot_seismic_clustering_2d.py`
 - `scripts/plot_seismic_clustering_3d.py`
 - `scripts/plot_seismic_lithology_2d.py`
 - `scripts/plot_seismic_lithology_3d.py`
+- `scripts/plot_seismic_regression_2d.py`
 - `scripts/plot_naive_bayes_gaussian_contours_2d.py`
 
 ## Plotting Lithology (Custom Class Colors)

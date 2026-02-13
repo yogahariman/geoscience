@@ -1,14 +1,16 @@
-# contoh seismic clustering (unsupervised)
-# - multi volume
+# contoh seismic regression prediction 2D (supervised)
+# - model diambil dari hasil training geosc.ml.regression (Regressor.save)
+# - multi volume input
 # - horizon top/bottom (CSV -> matrix [x,y,time])
-# - output SEG-Y cluster labels
+# - output SEG-Y nilai prediksi kontinu (misal vsh)
+
+import os
 
 import pandas as pd
 import segyio
 
+from geosc.seismic import SeismicRegressor
 from geosc.seismic.segy import get_segy_trace_header
-
-from geosc.seismic import SeismicClusterer
 
 nmline = [
 "04-001",
@@ -119,18 +121,18 @@ for line in nmline:
 output_segy = []
 for line in nmline:
     output_segy.append(
-        f"/Drive/D/Temp/2026021101_{line}_SOM_C3x3_AI,SI.sgy"
+        f"/Drive/D/Temp/2026021101_{line}_VSH_PRED_AI,SI.sgy"
     )
 
-import os
 missing = []
 for line in input_segy_list:
     for segyfile in line:
         if not os.path.exists(segyfile):
             missing.append(segyfile)
+print("Missing seismic:", missing)
 
-print("Missing:", missing)
-
+model_path = "/Drive/D/Temp/model_vsh.pkl"
+print("Model exists:", os.path.exists(model_path), model_path)
 
 horizon_top_csv = "/Drive/D/Works/DataSample/Seismic2D/Sample04(CNOOC)/Horizon/BRF.csv"
 horizon_base_csv = "/Drive/D/Works/DataSample/Seismic2D/Sample04(CNOOC)/Horizon/Basement+100.csv"
@@ -140,7 +142,6 @@ horizon_top = pd.read_csv(horizon_top_csv, header=None).iloc[:, :3].to_numpy(dty
 horizon_base = pd.read_csv(horizon_base_csv, header=None).iloc[:, :3].to_numpy(dtype=float)
 
 # Petrel-style byte position (1-based) + format
-# define header bytes per attribute (per input volume)
 header_bytes = []
 for _ in nmline:
     row = []
@@ -150,17 +151,15 @@ for _ in nmline:
                 "X": (73, "int32"),
                 "Y": (77, "int32"),
                 "CDP": (21, "int32"),
-                # "INLINE": (21, "int32"),
-                # "XLINE": (25, "int32"),
             }
         )
     header_bytes.append(row)
 
+# time first sample from -LagTimeA (byte 105)
 seis_time_first_sample = []
 for line in input_segy_list:
     row = []
     for segyfile in line:
-        # t0 = -LagTimeA (byte 105, int16)
         t0_val = -get_segy_trace_header(segyfile, 105, "int16")[0]
         row.append(float(t0_val))
     seis_time_first_sample.append(row)
@@ -178,33 +177,17 @@ for line in input_segy_list:
     seis_sample_interval.append(dt_row)
     seis_sample_pertrace.append(ns_row)
 
-cluster_params = {
-    "n_rows": 3,
-    "n_cols": 3,
-    "n_iter": 100,
-    "learning_rate": 0.01,
-    "sigma": None,
-    "random_state": 42,
-}
-
-model_output = "/Drive/D/Temp/model_cluster.pkl"
-
-clusterer = SeismicClusterer(
+predictor = SeismicRegressor(
     input_segy_list=input_segy_list,
     output_segy=output_segy,
     horizon_top=horizon_top,
     horizon_base=horizon_base,
     header_bytes=header_bytes,
-    sample_percent=60.0,  # sampling data training
+    model_path=model_path,
     null_value=-999.25,
-    cluster_params=cluster_params,
-    seed=42,
-    model_type="som",
     t0=seis_time_first_sample,
     dt=seis_sample_interval,
     ns=seis_sample_pertrace,
-    label_offset=1,
-    model_output=model_output,
 )
 
-clusterer.run()
+predictor.run()

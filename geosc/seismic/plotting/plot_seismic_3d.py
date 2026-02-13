@@ -46,6 +46,20 @@ class SeismicPlot3D:
             self.dt = segyio.tools.dt(f) / 1000.0  # ms
 
     # --------------------------------------------------
+    @staticmethod
+    def _mask_null(data, null_value):
+        arr = np.asarray(data, dtype=float).copy()
+        arr[arr == null_value] = np.nan
+        return np.ma.masked_invalid(arr)
+
+    # --------------------------------------------------
+    @staticmethod
+    def _cmap_with_transparent_bad(cmap):
+        cmap_obj = plt.get_cmap(cmap).copy()
+        cmap_obj.set_bad((0, 0, 0, 0))
+        return cmap_obj
+
+    # --------------------------------------------------
     def _load_traces(self, indices):
         with segyio.open(self.segyfile, "r", ignore_geometry=True) as f:
             return np.stack([f.trace[i] for i in indices])
@@ -87,12 +101,17 @@ class SeismicPlot3D:
         """
 
         plot_type = plot_type.lower()
+        data_plot = self._mask_null(data, null_value)
+        valid = np.asarray(data_plot.compressed(), dtype=float)
 
         # -----------------------------
         # Default style per plot type
         # -----------------------------
         if plot_type == "amplitude":
-            vmax = np.percentile(np.abs(data), clip_percentile)
+            if valid.size == 0:
+                vmax = 1.0
+            else:
+                vmax = np.percentile(np.abs(valid), clip_percentile)
             vmin = -vmax
             cmap = cmap or "seismic"
 
@@ -101,7 +120,6 @@ class SeismicPlot3D:
             cmap = cmap or "gray_r"
 
         elif plot_type == "cluster":
-            valid = data[data != null_value]
             if valid.size == 0:
                 vmin, vmax = 0.0, 1.0
             else:
@@ -121,9 +139,9 @@ class SeismicPlot3D:
 
         plt.figure(figsize=(14, 6))
         plt.imshow(
-            data.T,
+            data_plot.T,
             aspect="auto",
-            cmap=cmap,
+            cmap=self._cmap_with_transparent_bad(cmap),
             extent=[xaxis.min(), xaxis.max(), tmax, 0],
             vmin=vmin,
             vmax=vmax,
