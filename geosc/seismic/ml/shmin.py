@@ -6,18 +6,22 @@ from typing import Dict, List, Tuple, Union
 import numpy as np
 import segyio
 
-from geosc.ml import DataCleaner, Regressor
+from geosc.ml import DataCleaner, ShminRegressor
 from .base import SeismicMLBase
 
 
-class SeismicRegressor(SeismicMLBase):
+class SeismicShminPredictor(SeismicMLBase):
     """
-    Seismic regression within horizon interval, with multi-volume inputs.
+    Seismic Shmin prediction within horizon interval (predict-only).
 
-    - Input volumes are aligned by X/Y headers.
-    - Horizon top/base are provided as Nx3 [x,y,z/time] and matched by nearest x,y.
-    - Model is loaded from geosc.ml.Regressor output (predict only).
-    - Output is a SEG-Y volume of predicted continuous values.
+    Workflow follows seismic ML regression:
+    - align input volumes by geometry key (INLINE/XLINE or CDP)
+    - extract samples only between horizon top/base
+    - predict with trained ``geosc.ml.ShminRegressor``
+
+    Important:
+    - Input attribute order in ``input_segy_list`` must match training feature order.
+    - Typically first features are [hydrostatic, overburden, porepressure, ...].
     """
 
     def __init__(
@@ -44,18 +48,22 @@ class SeismicRegressor(SeismicMLBase):
             dt=dt,
             ns=ns,
         )
+        if self._n_attrs < 3:
+            raise ValueError(
+                "Shmin predictor requires at least 3 input attributes: "
+                "[hydrostatic, overburden, porepressure, ...]."
+            )
         self.model_path = model_path
 
     @staticmethod
-    def load_model(model_path: str) -> Regressor:
-        """Load a regression model saved by ``geosc.ml.Regressor``."""
-        return Regressor.load(model_path)
+    def load_model(model_path: str) -> ShminRegressor:
+        return ShminRegressor.load(model_path)
 
     def run(self) -> None:
         top_tree, top_time = self._build_horizon_tree(self.horizon_top)
         base_tree, base_time = self._build_horizon_tree(self.horizon_base)
 
-        predictor = Regressor.load(self.model_path)
+        predictor = self.load_model(self.model_path)
         cleaner = DataCleaner(null_value=self.null_value)
 
         for line_idx in range(self._n_lines):

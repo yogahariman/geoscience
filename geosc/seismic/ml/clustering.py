@@ -7,13 +7,7 @@ import numpy as np
 import segyio
 
 from geosc.ml import Clusterer
-from .base import (
-    SeismicMLBase,
-    _build_horizon_tree,
-    _build_index_map,
-    _build_samples_axis,
-    _nearest_time,
-)
+from .base import SeismicMLBase
 
 
 class SeismicClusterer(SeismicMLBase):
@@ -60,7 +54,14 @@ class SeismicClusterer(SeismicMLBase):
         )
 
         self.sample_percent = sample_percent
-        self.cluster_params = cluster_params or {}
+        params = dict(cluster_params or {})
+        if "scale_x" in params:
+            self.scale_x = bool(params.pop("scale_x"))
+        elif "use_scaler" in params:
+            self.scale_x = bool(params.pop("use_scaler"))
+        else:
+            self.scale_x = True
+        self.cluster_params = params
         self.seed = seed
         self.model_type = model_type
         self.label_offset = int(label_offset)
@@ -70,8 +71,8 @@ class SeismicClusterer(SeismicMLBase):
         rng = np.random.RandomState(self.seed)
 
         # ---- load horizon (matrix Nx3) ----
-        top_tree, top_time = _build_horizon_tree(self.horizon_top)
-        base_tree, base_time = _build_horizon_tree(self.horizon_base)
+        top_tree, top_time = self._build_horizon_tree(self.horizon_top)
+        base_tree, base_time = self._build_horizon_tree(self.horizon_base)
 
         X_train: List[List[float]] = []
 
@@ -95,8 +96,8 @@ class SeismicClusterer(SeismicMLBase):
                 ref_y,
             ) = self._build_alignment(headers_list)
 
-            top_t = _nearest_time(top_tree, top_time, ref_x, ref_y)
-            base_t = _nearest_time(base_tree, base_time, ref_x, ref_y)
+            top_t = self._nearest_time(top_tree, top_time, ref_x, ref_y)
+            base_t = self._nearest_time(base_tree, base_time, ref_x, ref_y)
 
             # ---- open SEG-Y volumes ----
             sources = [segyio.open(p, "r", ignore_geometry=True) for p in segy_list]
@@ -109,16 +110,16 @@ class SeismicClusterer(SeismicMLBase):
                     tfs_line = self.t0
                     dt_line = self.dt
                     ns_line = self.ns
-                samples_ref = _build_samples_axis(
+                samples_ref = self._build_samples_axis(
                     sources[0], tfs_line[0], dt_line[0], ns_line[0]
                 )
 
                 samples_per_volume = [
-                    _build_samples_axis(src, tfs_line[v], dt_line[v], ns_line[v])
+                    self._build_samples_axis(src, tfs_line[v], dt_line[v], ns_line[v])
                     for v, src in enumerate(sources)
                 ]
                 index_maps = [
-                    _build_index_map(samples_ref, samples_v)
+                    self._build_index_map(samples_ref, samples_v)
                     for samples_v in samples_per_volume
                 ]
 
@@ -174,7 +175,11 @@ class SeismicClusterer(SeismicMLBase):
 
         # ---- fit single clusterer ----
         clusterer = Clusterer(model_type=self.model_type)
-        clusterer.fit(X_train, parameters=self.cluster_params, scale_x=True)
+        clusterer.fit(
+            X_train,
+            parameters=self.cluster_params,
+            scale_x=self.scale_x,
+        )
         if self.model_output:
             clusterer.save(self.model_output)
 
@@ -196,8 +201,8 @@ class SeismicClusterer(SeismicMLBase):
                 ref_x,
                 ref_y,
             ) = self._build_alignment(headers_list)
-            top_t = _nearest_time(top_tree, top_time, ref_x, ref_y)
-            base_t = _nearest_time(base_tree, base_time, ref_x, ref_y)
+            top_t = self._nearest_time(top_tree, top_time, ref_x, ref_y)
+            base_t = self._nearest_time(base_tree, base_time, ref_x, ref_y)
 
             sources = [segyio.open(p, "r", ignore_geometry=True) for p in segy_list]
             try:
@@ -209,18 +214,18 @@ class SeismicClusterer(SeismicMLBase):
                     tfs_line = self.t0
                     dt_line = self.dt
                     ns_line = self.ns
-                samples_ref = _build_samples_axis(
+                samples_ref = self._build_samples_axis(
                     sources[0], tfs_line[0], dt_line[0], ns_line[0]
                 )
                 nz = samples_ref.size
                 ntr = sources[0].tracecount
 
                 samples_per_volume = [
-                    _build_samples_axis(src, tfs_line[v], dt_line[v], ns_line[v])
+                    self._build_samples_axis(src, tfs_line[v], dt_line[v], ns_line[v])
                     for v, src in enumerate(sources)
                 ]
                 index_maps = [
-                    _build_index_map(samples_ref, samples_v)
+                    self._build_index_map(samples_ref, samples_v)
                     for samples_v in samples_per_volume
                 ]
 

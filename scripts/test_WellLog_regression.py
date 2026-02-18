@@ -52,7 +52,7 @@ print("R2:", r2_score(y_test, pred_test))
 
 # -------- predict --------
 
-df = pd.read_csv(DATA_PATH)
+df = pd.read_csv(DATA_PATH, header=0, skiprows=[1])
 X = df[FEATURE_COLS].values
 
 X = cleaner.clean_data_prediction(X)

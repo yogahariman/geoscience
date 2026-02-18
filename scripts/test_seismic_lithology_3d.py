@@ -59,10 +59,13 @@ print("Model exists:", os.path.exists(model_path), model_path)
 seis_time_first_sample = []
 for segyfile in input_segy_list:
     t0_val = -get_segy_trace_header(segyfile, 105, "int16")[0]
-    seis_time_first_sample.append(float(t0_val))
+    seis_time_first_sample.append(float(t0_val))    
 
 # jika perlu, sesuaikan sign t0 dengan data Anda
 seis_time_first_sample = np.array(seis_time_first_sample, dtype=float)
+
+# karena firstime terbalik maka saya kalikan -1 untuk buatnya jadi positif (ms)
+seis_time_first_sample = np.array(seis_time_first_sample, dtype=float) * -1.0  # convert to positive ms
 
 # sample interval (dt) and samples per trace (ns) per seismic
 seis_sample_interval = []

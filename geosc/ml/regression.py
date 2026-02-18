@@ -15,9 +15,19 @@ SUPPORTED_MODEL_TYPES = {
 }
 
 
-def _require_sklearn():
+def _require_standard_scaler():
     try:
         from sklearn.preprocessing import StandardScaler  # type: ignore
+    except Exception as exc:  # pragma: no cover - import guard
+        raise ImportError(
+            "Regressor requires scikit-learn. Install with: pip install scikit-learn"
+        ) from exc
+
+    return StandardScaler
+
+
+def _require_sklearn_models():
+    try:
         from sklearn.ensemble import RandomForestRegressor  # type: ignore
         from sklearn.neural_network import MLPRegressor  # type: ignore
         from sklearn.svm import SVR  # type: ignore
@@ -26,7 +36,7 @@ def _require_sklearn():
             "Regressor requires scikit-learn. Install with: pip install scikit-learn"
         ) from exc
 
-    return StandardScaler, RandomForestRegressor, MLPRegressor, SVR
+    return RandomForestRegressor, MLPRegressor, SVR
 
 
 class Regressor:
@@ -64,7 +74,7 @@ class Regressor:
         self.scale_y = scale_y
 
     def _build_model(self, parameters: Dict[str, Any]) -> Any:
-        StandardScaler, RandomForestRegressor, MLPRegressor, SVR = _require_sklearn()
+        RandomForestRegressor, MLPRegressor, SVR = _require_sklearn_models()
 
         if self.model_type == "xgboost":
             try:
@@ -101,7 +111,7 @@ class Regressor:
 
         use_scaler = self.use_scaler if scale_x is None else scale_x
         if use_scaler:
-            StandardScaler, *_ = _require_sklearn()
+            StandardScaler = _require_standard_scaler()
             self.scaler = StandardScaler(**(scaler_params or {}))
             X = self.scaler.fit_transform(X)
         else:
@@ -109,7 +119,7 @@ class Regressor:
 
         self.scale_y = scale_y
         if scale_y:
-            StandardScaler, *_ = _require_sklearn()
+            StandardScaler = _require_standard_scaler()
             self.y_scaler = StandardScaler(**(y_scaler_params or {}))
             y = self.y_scaler.fit_transform(y.reshape(-1, 1)).ravel()
         else:

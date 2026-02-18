@@ -58,11 +58,12 @@ for segyfile in input_segy_list:
         seis_sample_pertrace.append(int(f.samples.size))
 
 cluster_params = {
-    "n_rows": 3,
-    "n_cols": 3,
-    "n_iter": 100,
-    "learning_rate": 0.01,
-    "sigma": None,
+    "scale_x": True,
+    "n_rows": 2,
+    "n_cols": 2,
+    "n_iter": 1000,
+    "learning_rate": 0.1,
+    "sigma": None,  # default: max(n_rows, n_cols) / 2
     "random_state": 42,
 }
 

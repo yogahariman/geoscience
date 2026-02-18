@@ -26,44 +26,6 @@ def _validate_horizon_array(horizon_xyz: np.ndarray) -> np.ndarray:
     return arr
 
 
-def _build_horizon_tree(horizon_xyz: np.ndarray) -> Tuple[cKDTree, np.ndarray]:
-    xy = horizon_xyz[:, :2]
-    t = horizon_xyz[:, 2]
-    return cKDTree(xy), t
-
-
-def _nearest_time(tree: cKDTree, times: np.ndarray, x: np.ndarray, y: np.ndarray) -> np.ndarray:
-    dist, idx = tree.query(np.c_[x, y], k=1)
-    _ = dist
-    return times[idx]
-
-
-def _time_to_index(samples: np.ndarray, t: float) -> int:
-    return int(np.argmin(np.abs(samples - t)))
-
-
-def _build_index_map(samples_ref: np.ndarray, samples_target: np.ndarray) -> np.ndarray:
-    return np.array(
-        [int(np.argmin(np.abs(samples_target - t))) for t in samples_ref],
-        dtype=int,
-    )
-
-
-def _build_samples_axis(
-    src,
-    t0: float,
-    dt: float | None,
-    ns: int | None,
-) -> np.ndarray:
-    if dt is not None:
-        n = int(ns) if ns is not None else int(src.samples.size)
-        return t0 + (np.arange(n, dtype=float) * float(dt))
-    samples = np.asarray(src.samples, dtype=float) + t0
-    if ns is not None and int(ns) != samples.size:
-        raise ValueError("ns does not match SEG-Y samples size.")
-    return samples
-
-
 class SeismicMLBase:
     """Shared seismic ML foundation for alignment, horizon handling, and sample-axis config."""
 
@@ -262,6 +224,49 @@ class SeismicMLBase:
             ]
         raise ValueError("Header missing INLINE/XLINE or CDP.")
 
+    @staticmethod
+    def _build_horizon_tree(horizon_xyz: np.ndarray) -> Tuple[cKDTree, np.ndarray]:
+        xy = horizon_xyz[:, :2]
+        t = horizon_xyz[:, 2]
+        return cKDTree(xy), t
+
+    @staticmethod
+    def _nearest_time(
+        tree: cKDTree,
+        times: np.ndarray,
+        x: np.ndarray,
+        y: np.ndarray,
+    ) -> np.ndarray:
+        dist, idx = tree.query(np.c_[x, y], k=1)
+        _ = dist
+        return times[idx]
+
+    @staticmethod
+    def _time_to_index(samples: np.ndarray, t: float) -> int:
+        return int(np.argmin(np.abs(samples - t)))
+
+    @staticmethod
+    def _build_index_map(samples_ref: np.ndarray, samples_target: np.ndarray) -> np.ndarray:
+        return np.array(
+            [int(np.argmin(np.abs(samples_target - t))) for t in samples_ref],
+            dtype=int,
+        )
+
+    @staticmethod
+    def _build_samples_axis(
+        src,
+        t0: float,
+        dt: float | None,
+        ns: int | None,
+    ) -> np.ndarray:
+        if dt is not None:
+            n = int(ns) if ns is not None else int(src.samples.size)
+            return t0 + (np.arange(n, dtype=float) * float(dt))
+        samples = np.asarray(src.samples, dtype=float) + t0
+        if ns is not None and int(ns) != samples.size:
+            raise ValueError("ns does not match SEG-Y samples size.")
+        return samples
+
     def _build_alignment(
         self,
         headers_list: List[Dict[str, np.ndarray]],
@@ -291,8 +296,8 @@ class SeismicMLBase:
         ref_y = ref_headers["Y"][aligned_ref_indices]
         return aligned_ref_indices, aligned_trace_indices_per_volume, ref_idx_to_j, ref_x, ref_y
 
-    @staticmethod
     def _build_interval_index_maps(
+        self,
         aligned_ref_indices: List[int],
         top_t: np.ndarray,
         base_t: np.ndarray,
@@ -303,8 +308,8 @@ class SeismicMLBase:
         for ref_idx, t_top, t_base in zip(aligned_ref_indices, top_t, base_t):
             if not np.isfinite(t_top) or not np.isfinite(t_base):
                 continue
-            iz_top = _time_to_index(samples_ref, float(t_top))
-            iz_base = _time_to_index(samples_ref, float(t_base))
+            iz_top = self._time_to_index(samples_ref, float(t_top))
+            iz_base = self._time_to_index(samples_ref, float(t_base))
             if iz_top > iz_base:
                 iz_top, iz_base = iz_base, iz_top
             top_idx_map[int(ref_idx)] = int(iz_top)

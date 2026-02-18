@@ -15,11 +15,11 @@ null_value = -999.25
 # warna class bisa Anda atur bebas
 # contoh: merah, hijau, kuning, biru, hitam
 CLASS_COLORS = {
-    1: "red",
-    2: "green",
-    3: "yellow",
+    1: "green",
+    2: "yellow",
+    3: "black",
     4: "blue",
-    5: "black",
+    5: "red",
 }
 
 # pilih slice yang mau diplot
@@ -27,9 +27,12 @@ INLINE_TO_PLOT = 350
 # XLINE_TO_PLOT = 500  # aktifkan jika ingin plot xline
 
 def _plot_slice(plotter, data, xaxis, title):
-    valid = data[data != null_value]
-    cmap, norm, classes = build_discrete_style(valid, CLASS_COLORS)
     plot_data = mask_null_values(data, null_value)
+    valid = np.asarray(plot_data.compressed(), dtype=float)
+    if valid.size == 0:
+        raise ValueError(f"Tidak ada nilai lithology valid untuk slice: {title}")
+
+    cmap, norm, classes = build_discrete_style(valid, CLASS_COLORS)
 
     plt.figure(figsize=(14, 6))
     img = plt.imshow(

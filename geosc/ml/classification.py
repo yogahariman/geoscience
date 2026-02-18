@@ -16,9 +16,19 @@ SUPPORTED_MODEL_TYPES = {
 }
 
 
-def _require_sklearn():
+def _require_standard_scaler():
     try:
         from sklearn.preprocessing import StandardScaler  # type: ignore
+    except Exception as exc:  # pragma: no cover - import guard
+        raise ImportError(
+            "Classifier requires scikit-learn. Install with: pip install scikit-learn"
+        ) from exc
+
+    return StandardScaler
+
+
+def _require_sklearn_models():
+    try:
         from sklearn.ensemble import RandomForestClassifier  # type: ignore
         from sklearn.neural_network import MLPClassifier  # type: ignore
         from sklearn.svm import SVC  # type: ignore
@@ -28,7 +38,7 @@ def _require_sklearn():
             "Classifier requires scikit-learn. Install with: pip install scikit-learn"
         ) from exc
 
-    return StandardScaler, RandomForestClassifier, MLPClassifier, SVC, GaussianNB
+    return RandomForestClassifier, MLPClassifier, SVC, GaussianNB
 
 
 class Classifier:
@@ -63,7 +73,7 @@ class Classifier:
         self.classes_ = None
 
     def _build_model(self, parameters: Dict[str, Any]) -> Any:
-        StandardScaler, RandomForestClassifier, MLPClassifier, SVC, GaussianNB = _require_sklearn()
+        RandomForestClassifier, MLPClassifier, SVC, GaussianNB = _require_sklearn_models()
 
         if self.model_type == "xgboost":
             try:
@@ -102,7 +112,7 @@ class Classifier:
 
         use_scaler = self.use_scaler if scale_x is None else scale_x
         if use_scaler:
-            StandardScaler, *_ = _require_sklearn()
+            StandardScaler = _require_standard_scaler()
             self.scaler = StandardScaler(**(scaler_params or {}))
             X = self.scaler.fit_transform(X)
         else:

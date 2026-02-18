@@ -16,9 +16,19 @@ SUPPORTED_MODEL_TYPES = {
 }
 
 
-def _require_sklearn():
+def _require_standard_scaler():
     try:
         from sklearn.preprocessing import StandardScaler  # type: ignore
+    except Exception as exc:  # pragma: no cover - import guard
+        raise ImportError(
+            "Clusterer requires scikit-learn. Install with: pip install scikit-learn"
+        ) from exc
+
+    return StandardScaler
+
+
+def _require_sklearn_models():
+    try:
         from sklearn.cluster import KMeans, DBSCAN, AgglomerativeClustering  # type: ignore
         from sklearn.mixture import GaussianMixture  # type: ignore
     except Exception as exc:  # pragma: no cover - import guard
@@ -26,7 +36,7 @@ def _require_sklearn():
             "Clusterer requires scikit-learn. Install with: pip install scikit-learn"
         ) from exc
 
-    return StandardScaler, KMeans, DBSCAN, AgglomerativeClustering, GaussianMixture
+    return KMeans, DBSCAN, AgglomerativeClustering, GaussianMixture
 
 
 class _SimpleSOM:
@@ -152,7 +162,7 @@ class Clusterer:
         self.scaler = scaler
 
     def _build_model(self, parameters: Dict[str, Any]) -> Any:
-        StandardScaler, KMeans, DBSCAN, AgglomerativeClustering, GaussianMixture = _require_sklearn()
+        KMeans, DBSCAN, AgglomerativeClustering, GaussianMixture = _require_sklearn_models()
 
         if self.model_type == "kmeans":
             return KMeans(**parameters)
@@ -180,7 +190,7 @@ class Clusterer:
 
         use_scaler = self.use_scaler if scale_x is None else scale_x
         if use_scaler:
-            StandardScaler, *_ = _require_sklearn()
+            StandardScaler = _require_standard_scaler()
             self.scaler = StandardScaler(**(scaler_params or {}))
             X = self.scaler.fit_transform(X)
         else:
@@ -217,7 +227,7 @@ class Clusterer:
                 X_v = X[valid_mask]
                 use_scaler = self.use_scaler if scale_x is None else scale_x
                 if use_scaler:
-                    StandardScaler, *_ = _require_sklearn()
+                    StandardScaler = _require_standard_scaler()
                     self.scaler = StandardScaler(**(scaler_params or {}))
                     X_v = self.scaler.fit_transform(X_v)
                 else:
@@ -239,7 +249,7 @@ class Clusterer:
 
         use_scaler = self.use_scaler if scale_x is None else scale_x
         if use_scaler:
-            StandardScaler, *_ = _require_sklearn()
+            StandardScaler = _require_standard_scaler()
             self.scaler = StandardScaler(**(scaler_params or {}))
             X = self.scaler.fit_transform(X)
         else:

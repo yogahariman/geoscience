@@ -1,8 +1,7 @@
-# contoh seismic regression prediction 3D (supervised)
-# - model diambil dari hasil training geosc.ml.regression (Regressor.save)
-# - multi volume input
-# - horizon top/bottom (CSV -> matrix [x,y,time])
-# - output SEG-Y nilai prediksi kontinu (misal vsh)
+# contoh seismic shmin prediction 3D (supervised)
+# - model dari geosc.ml.ShminRegressor.save(...)
+# - urutan fitur wajib sama dengan training model
+# - contoh urutan: [hydrostatic, overburden, porepressure, AI, SI]
 
 import os
 
@@ -10,65 +9,51 @@ import numpy as np
 import pandas as pd
 import segyio
 
-from geosc.seismic import SeismicRegressor
+from geosc.seismic import SeismicShminPredictor
 from geosc.seismic.segy import get_segy_trace_header
 
 input_segy_list = [
+    "/Drive/D/Temp/HYDROSTATIC_3D/hydrostatic_3d.sgy",
+    "/Drive/D/Temp/OVERBURDEN_3D/overburden_3d.sgy",
+    "/Drive/D/Temp/POREPRESSURE_3D/porepressure_3d.sgy",
     "/Drive/D/Works/DataSample/Seismic3D/Sample03_TMT20121220/Attribute/AI_tmt_exp.segy",
     "/Drive/D/Works/DataSample/Seismic3D/Sample03_TMT20121220/Attribute/SI_tmt_exp.segy",
 ]
 
-output_segy = "/Drive/D/Temp/vsh_pred_3d.sgy"
-model_path = "/Drive/D/Temp/model_vsh.pkl"
+output_segy = "/Drive/D/Temp/shmin_pred_3d.sgy"
+model_path = "/Drive/D/Temp/model_shmin.pkl"
 
 horizon_top_csv = "/Drive/D/Works/DataSample/Seismic3D/Sample03_TMT20121220/Horizon/Horizon_top.csv"
 horizon_base_csv = "/Drive/D/Works/DataSample/Seismic3D/Sample03_TMT20121220/Horizon/Horizon_bottom.csv"
-
-# horizon format: no header, fixed columns [x, y, z/time]
 horizon_top = pd.read_csv(horizon_top_csv, header=None).iloc[:, :3].to_numpy(dtype=float)
 horizon_base = pd.read_csv(horizon_base_csv, header=None).iloc[:, :3].to_numpy(dtype=float)
 
-# header bytes per attribute (3D)
 header_bytes = [
-    {
-        "X": (73, "int32"),
-        "Y": (77, "int32"),
-        "INLINE": (5, "int32"),
-        "XLINE": (21, "int32"),
-    },
-    {
-        "X": (73, "int32"),
-        "Y": (77, "int32"),
-        "INLINE": (5, "int32"),
-        "XLINE": (21, "int32"),
-    },
+    {"X": (73, "int32"), "Y": (77, "int32"), "INLINE": (5, "int32"), "XLINE": (21, "int32")},
+    {"X": (73, "int32"), "Y": (77, "int32"), "INLINE": (5, "int32"), "XLINE": (21, "int32")},
+    {"X": (73, "int32"), "Y": (77, "int32"), "INLINE": (5, "int32"), "XLINE": (21, "int32")},
+    {"X": (73, "int32"), "Y": (77, "int32"), "INLINE": (5, "int32"), "XLINE": (21, "int32")},
+    {"X": (73, "int32"), "Y": (77, "int32"), "INLINE": (5, "int32"), "XLINE": (21, "int32")},
 ]
 
 missing = [p for p in input_segy_list if not os.path.exists(p)]
 print("Missing seismic:", missing)
 print("Model exists:", os.path.exists(model_path), model_path)
 
-# time first sample from -LagTimeA (byte 105)
 seis_time_first_sample = []
 for segyfile in input_segy_list:
     t0_val = -get_segy_trace_header(segyfile, 105, "int16")[0]
     seis_time_first_sample.append(float(t0_val))
+seis_time_first_sample = np.array(seis_time_first_sample, dtype=float) * -1.0
 
-# jika perlu, sesuaikan sign t0 dengan data Anda
-seis_time_first_sample = np.array(seis_time_first_sample, dtype=float)
-
-# karena firstime terbalik maka saya kalikan -1 untuk buatnya jadi positif (ms)
-seis_time_first_sample = np.array(seis_time_first_sample, dtype=float) * -1.0  # convert to positive ms
-
-# sample interval (dt) and samples per trace (ns) per seismic
 seis_sample_interval = []
 seis_sample_pertrace = []
 for segyfile in input_segy_list:
     with segyio.open(segyfile, "r", ignore_geometry=True) as f:
-        seis_sample_interval.append(segyio.tools.dt(f) / 1000.0)  # ms
+        seis_sample_interval.append(segyio.tools.dt(f) / 1000.0)
         seis_sample_pertrace.append(int(f.samples.size))
 
-predictor = SeismicRegressor(
+predictor = SeismicShminPredictor(
     input_segy_list=input_segy_list,
     output_segy=output_segy,
     horizon_top=horizon_top,
@@ -80,5 +65,4 @@ predictor = SeismicRegressor(
     dt=seis_sample_interval,
     ns=seis_sample_pertrace,
 )
-
 predictor.run()
