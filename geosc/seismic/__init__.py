@@ -7,6 +7,11 @@ from .ml import (
     SeismicShmaxPredictor,
     SeismicShminPredictor,
 )
+from .editing import (
+    SeismicEditor,
+    crop_segy_3d,
+    resample_segy_3d,
+)
 
 __all__ = [
     "SeismicClassifier",
@@ -16,4 +21,7 @@ __all__ = [
     "SeismicRegressor",
     "SeismicShmaxPredictor",
     "SeismicShminPredictor",
+    "SeismicEditor",
+    "crop_segy_3d",
+    "resample_segy_3d",
 ]

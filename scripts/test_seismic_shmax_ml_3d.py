@@ -10,7 +10,7 @@ import pandas as pd
 import segyio
 
 from geosc.seismic import SeismicShmaxPredictor
-from geosc.seismic.segy import get_segy_trace_header
+from geosc.seismic.segy import append_process_text_header, get_segy_trace_header
 
 input_segy_list = [
     "/Drive/D/Temp/HYDROSTATIC_3D/hydrostatic_3d.sgy",
@@ -68,3 +68,13 @@ predictor = SeismicShmaxPredictor(
     ns=seis_sample_pertrace,
 )
 predictor.run()
+append_process_text_header(
+    output_segy,
+    process_name="SeismicShmaxPredictor",
+    details=[
+        f"model={model_path}",
+        "feature_order=hydrostatic,overburden,porepressure,shmin,...",
+        f"n_attrs={len(input_segy_list)}",
+        "null_value=-999.25",
+    ],
+)

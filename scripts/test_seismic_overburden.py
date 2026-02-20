@@ -1,4 +1,5 @@
 from geosc.seismic.geomechanics import SeismicOverburden
+from geosc.seismic.segy import append_process_text_header
 
 
 # Input volumes
@@ -33,6 +34,16 @@ calc_psi = SeismicOverburden(
     null_value=-999.25,    # set None if no null marker
 )
 calc_psi.run()
+append_process_text_header(
+    output_segy_psi,
+    process_name="SeismicOverburden",
+    details=[
+        "output_unit=psi",
+        "density_unit=g/cc",
+        "gravity_mps2=9.78033",
+        "null_value=-999.25",
+    ],
+)
 
 
 output_segy_sg = "/Drive/D/Temp/overburden_sg.sgy"
@@ -49,3 +60,13 @@ calc_sg = SeismicOverburden(
     null_value=-999.25,
 )
 calc_sg.run()
+append_process_text_header(
+    output_segy_sg,
+    process_name="SeismicOverburden",
+    details=[
+        "output_unit=sg",
+        "density_unit=g/cc",
+        "gravity_mps2=9.78033",
+        "null_value=-999.25",
+    ],
+)

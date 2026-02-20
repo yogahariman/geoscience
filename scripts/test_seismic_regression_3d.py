@@ -11,7 +11,7 @@ import pandas as pd
 import segyio
 
 from geosc.seismic import SeismicRegressor
-from geosc.seismic.segy import get_segy_trace_header
+from geosc.seismic.segy import append_process_text_header, get_segy_trace_header
 
 input_segy_list = [
     "/Drive/D/Works/DataSample/Seismic3D/Sample03_TMT20121220/Attribute/AI_tmt_exp.segy",
@@ -82,3 +82,13 @@ predictor = SeismicRegressor(
 )
 
 predictor.run()
+append_process_text_header(
+    output_segy,
+    process_name="SeismicRegressor",
+    details=[
+        f"model={model_path}",
+        "feature_order=as_input_segy_list",
+        f"n_attrs={len(input_segy_list)}",
+        "null_value=-999.25",
+    ],
+)

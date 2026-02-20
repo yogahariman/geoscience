@@ -6,7 +6,7 @@
 import pandas as pd
 import numpy as np
 import segyio
-from geosc.seismic.segy import get_segy_trace_header
+from geosc.seismic.segy import append_process_text_header, get_segy_trace_header
 from geosc.seismic import SeismicClusterer
 
 input_segy_list = [
@@ -88,3 +88,13 @@ clusterer = SeismicClusterer(
 )
 
 clusterer.run()
+append_process_text_header(
+    output_segy,
+    process_name="SeismicClusterer",
+    details=[
+        "model_type=som",
+        "feature_order=as_input_segy_list",
+        f"n_attrs={len(input_segy_list)}",
+        "null_value=-999.25",
+    ],
+)

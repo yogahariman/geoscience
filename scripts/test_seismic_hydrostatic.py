@@ -1,4 +1,5 @@
 from geosc.seismic.geomechanics import SeismicHydrostatic
+from geosc.seismic.segy import append_process_text_header
 
 
 # Input depth TVDSS volume (meter)
@@ -16,6 +17,16 @@ calculator_psi = SeismicHydrostatic(
     null_value=-999.25, # set None if input has no null marker
 )
 calculator_psi.run()
+append_process_text_header(
+    output_segy_psi,
+    process_name="SeismicHydrostatic",
+    details=[
+        "output_unit=psi",
+        "density_kgm3=1000.0",
+        "gravity_mps2=9.78033",
+        "null_value=-999.25",
+    ],
+)
 
 
 # Output hydrostatic equivalent gradient in SG
@@ -30,3 +41,13 @@ calculator_sg = SeismicHydrostatic(
     null_value=-999.25, # or None
 )
 calculator_sg.run()
+append_process_text_header(
+    output_segy_sg,
+    process_name="SeismicHydrostatic",
+    details=[
+        "output_unit=sg",
+        "density_kgm3=1000.0",
+        "gravity_mps2=9.78033",
+        "null_value=-999.25",
+    ],
+)
